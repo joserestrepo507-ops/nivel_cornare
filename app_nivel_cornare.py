@@ -5,6 +5,16 @@ Adaptada para la estación 23 (José Daniel Restrepo Ramírez).
 
 Para correrla:
     streamlit run app_nivel_cornare.py
+
+Nota sobre ubicación y fotos:
+El endpoint de "nivel" solo trae fecha/valor, no metadatos de la estación.
+Por eso esta app también consulta el LISTADO de estaciones (que sí trae
+nombre, coordenadas y -si existen- fotos) y busca ahí la que coincide con
+CODIGO_ESTACION. No conozco de antemano los nombres exactos de esas llaves
+en la API real, así que se prueban varios nombres comunes (ver
+CANDIDATOS_* más abajo). Si al correrla no aparece el mapa o las fotos
+correctas, abre el expander "Datos crudos de la estación" para ver las
+llaves reales y ajústalas en esas listas.
 """
 
 import requests
@@ -17,7 +27,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ------------------------------------------------------------------
 # Coordenadas por defecto (Institución Universitaria Pascual Bravo)
-# Se usan solo si la API no trae la latitud/longitud de la estación.
+# Se usan solo si no logramos encontrar la latitud/longitud real.
 # ------------------------------------------------------------------
 LAT_DEFECTO = 6.2766
 LON_DEFECTO = -75.5901
@@ -26,14 +36,31 @@ API_BASE_URL = "https://marco.cornare.gov.co/api/v1/estaciones"
 
 LLAVE_FECHA = "level_date"
 LLAVE_VALOR = "level"
+
+# Posibles endpoints donde puede vivir el listado/detalle de estaciones
+# (se prueban en orden hasta que uno responda 200).
+ENDPOINTS_INFO_ESTACION = [
+    "{base}/{codigo}/",
+    "{base}/{codigo}",
+    "{base}/",
+]
+
+# Nombres de llave candidatos para cada dato que buscamos.
+CANDIDATOS_ID = ["id", "codigo", "code", "station_id", "id_estacion"]
 CANDIDATOS_LAT = ["lat", "latitude", "latitud"]
-CANDIDATOS_LON = ["lng", "lon", "longitude", "longitud"]
+CANDIDATOS_LON = ["lng", "lon", "long", "longitude", "longitud"]
+CANDIDATOS_NOMBRE = ["nombre", "name", "station_name", "nombre_estacion"]
+CANDIDATOS_FOTOS = [
+    "foto", "fotos", "imagen", "imagenes", "photo", "photos",
+    "image", "images", "picture", "pictures", "url_foto", "foto_url",
+    "imagen_url", "photo_url",
+]
 
 st.set_page_config(page_title="Nivel de estación — CORNARE", page_icon="🌊", layout="wide")
 
 
 # ------------------------------------------------------------------
-# Funciones de consulta
+# Funciones de consulta — serie de nivel
 # ------------------------------------------------------------------
 def obtener_serie_nivel(codigo_estacion, desde, hasta, calidad=1, timeout=30):
     url = f"{API_BASE_URL}/{codigo_estacion}/nivel"
@@ -67,20 +94,122 @@ def obtener_todas_las_paginas(datos_json, timeout=30):
     return registros
 
 
-def detectar_coordenadas(datos_json):
-    """Busca lat/lon en las llaves raíz de la respuesta. Si no las encuentra, usa el valor por defecto."""
-    if not isinstance(datos_json, dict):
-        return LAT_DEFECTO, LON_DEFECTO, False
+# ------------------------------------------------------------------
+# Funciones de consulta — metadatos de la estación (ubicación y fotos)
+# ------------------------------------------------------------------
+def _valor_por_candidatos(d, candidatos):
+    """Devuelve el primer valor encontrado en el dict `d` para cualquiera de las llaves candidatas."""
+    if not isinstance(d, dict):
+        return None
+    for k in candidatos:
+        if k in d and d[k] not in (None, ""):
+            return d[k]
+    return None
 
-    lat = next((datos_json[k] for k in CANDIDATOS_LAT if k in datos_json), None)
-    lon = next((datos_json[k] for k in CANDIDATOS_LON if k in datos_json), None)
 
+def _buscar_estacion_en_lista(lista, codigo_estacion):
+    """Recorre una lista de estaciones y devuelve la que coincide con el código buscado."""
+    if not isinstance(lista, list):
+        return None
+    codigo_str = str(codigo_estacion).strip()
+    for item in lista:
+        if not isinstance(item, dict):
+            continue
+        candidato_id = _valor_por_candidatos(item, CANDIDATOS_ID)
+        if candidato_id is not None and str(candidato_id).strip() == codigo_str:
+            return item
+    return None
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def obtener_info_estacion(codigo_estacion, timeout=20):
+    """
+    Intenta obtener el registro de metadatos de la estación (nombre, coordenadas,
+    fotos) probando varios endpoints plausibles. Devuelve (dict_o_None, endpoint_usado_o_None).
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+    }
+    for plantilla in ENDPOINTS_INFO_ESTACION:
+        url = plantilla.format(base=API_BASE_URL, codigo=codigo_estacion)
+        try:
+            resp = requests.get(url, headers=headers, timeout=timeout, verify=False)
+        except requests.exceptions.RequestException:
+            continue
+        if resp.status_code != 200:
+            continue
+        try:
+            data = resp.json()
+        except ValueError:
+            continue
+
+        # Caso 1: el endpoint ya devuelve el detalle de UNA sola estación
+        if isinstance(data, dict) and _valor_por_candidatos(data, CANDIDATOS_LAT) is not None:
+            return data, url
+
+        # Caso 2: el endpoint devuelve una lista (posiblemente paginada tipo DRF)
+        lista = data.get("values") if isinstance(data, dict) else data
+        if isinstance(data, dict) and lista is None:
+            # a veces el listado viene bajo otra llave, ej. "results" o "estaciones"
+            for k in ("results", "estaciones", "data"):
+                if isinstance(data.get(k), list):
+                    lista = data[k]
+                    break
+        if isinstance(lista, list):
+            encontrada = _buscar_estacion_en_lista(lista, codigo_estacion)
+            if encontrada:
+                return encontrada, url
+
+    return None, None
+
+
+def detectar_coordenadas(info_estacion):
+    """Extrae lat/lon del registro de metadatos. Si no hay, usa el valor por defecto."""
+    lat = _valor_por_candidatos(info_estacion, CANDIDATOS_LAT)
+    lon = _valor_por_candidatos(info_estacion, CANDIDATOS_LON)
     if lat is not None and lon is not None:
         try:
             return float(lat), float(lon), True
         except (TypeError, ValueError):
             pass
     return LAT_DEFECTO, LON_DEFECTO, False
+
+
+def detectar_fotos(info_estacion):
+    """
+    Extrae URLs de fotos del registro de metadatos, aceptando varias formas:
+    string único, lista de strings, o lista de dicts con una llave tipo url/foto.
+    """
+    if not isinstance(info_estacion, dict):
+        return []
+
+    valor = _valor_por_candidatos(info_estacion, CANDIDATOS_FOTOS)
+    if valor is None:
+        return []
+
+    urls = []
+    if isinstance(valor, str):
+        urls.append(valor)
+    elif isinstance(valor, list):
+        for elem in valor:
+            if isinstance(elem, str):
+                urls.append(elem)
+            elif isinstance(elem, dict):
+                sub_url = _valor_por_candidatos(
+                    elem, ["url", "foto", "imagen", "image", "photo", "src", "link"]
+                )
+                if sub_url:
+                    urls.append(sub_url)
+
+    # Filtra vacíos y duplicados conservando el orden
+    vistos = set()
+    urls_limpias = []
+    for u in urls:
+        if u and u not in vistos:
+            vistos.add(u)
+            urls_limpias.append(u)
+    return urls_limpias
 
 
 def calcular_indice_calidad(df):
@@ -129,6 +258,7 @@ st.caption(f"Estudiante: **{nombre_estudiante}** · Estación: **{codigo_estacio
 if consultar:
     with st.spinner("Consultando la API..."):
         datos_crudos, error = obtener_serie_nivel(codigo_estacion, fecha_desde, fecha_hasta, calidad)
+        info_estacion, endpoint_usado = obtener_info_estacion(codigo_estacion)
 
     if error:
         st.error(f"❌ {error}")
@@ -144,7 +274,9 @@ if consultar:
             df["nivel"] = pd.to_numeric(df["nivel"], errors="coerce")
             df = df.dropna(subset=["fecha", "nivel"]).sort_values("fecha").reset_index(drop=True)
 
-            lat, lon, coords_reales = detectar_coordenadas(datos_crudos)
+            lat, lon, coords_reales = detectar_coordenadas(info_estacion)
+            fotos = detectar_fotos(info_estacion)
+            nombre_estacion_api = _valor_por_candidatos(info_estacion, CANDIDATOS_NOMBRE)
             indice_calidad, huecos, n_outliers = calcular_indice_calidad(df)
 
             # --- Métricas principales ---
@@ -159,10 +291,39 @@ if consultar:
             st.line_chart(df.set_index("fecha")["nivel"])
 
             # --- Mapa de la estación ---
-            st.subheader("Ubicación de la estación")
+            titulo_mapa = "Ubicación de la estación"
+            if nombre_estacion_api:
+                titulo_mapa += f" — {nombre_estacion_api}"
+            st.subheader(titulo_mapa)
             if not coords_reales:
-                st.caption("La API no trajo latitud/longitud de la estación — se muestra el punto de partida (Pascual Bravo). Ajusta `CANDIDATOS_LAT` / `CANDIDATOS_LON` si conoces el nombre real de esas llaves.")
-            st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}), zoom=10)
+                st.caption(
+                    "No se encontraron coordenadas reales de la estación en la API "
+                    "(revisa el expander de datos crudos más abajo para ver las llaves disponibles) "
+                    "— se muestra el punto de partida (Pascual Bravo) como referencia."
+                )
+            st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}), zoom=12)
+
+            # --- Fotos de la estación ---
+            st.subheader("Fotos de la estación")
+            if fotos:
+                cols_fotos = st.columns(min(len(fotos), 3))
+                for i, url_foto in enumerate(fotos):
+                    with cols_fotos[i % len(cols_fotos)]:
+                        st.image(url_foto, use_container_width=True)
+            else:
+                st.caption(
+                    "No se encontraron fotos de la estación en la respuesta de la API. "
+                    "Si sabes que sí existen, revisa el expander de datos crudos para "
+                    "identificar el nombre real del campo y agrégalo a `CANDIDATOS_FOTOS`."
+                )
+
+            # --- Datos crudos de la estación (para depurar nombres de campos) ---
+            with st.expander("🔍 Datos crudos de la estación (para depurar)"):
+                if info_estacion:
+                    st.caption(f"Encontrados en: `{endpoint_usado}`")
+                    st.json(info_estacion)
+                else:
+                    st.write("No se pudo obtener el registro de metadatos de la estación en ninguno de los endpoints probados.")
 
             # --- Detalle de calidad ---
             with st.expander("Detalle del índice de calidad"):
@@ -171,7 +332,7 @@ if consultar:
                 st.write("El índice combina completitud de la serie (70%) y proporción de datos sin outliers (30%).")
 
             # --- Tabla y descarga ---
-            with st.expander("Ver datos crudos"):
+            with st.expander("Ver datos crudos de la serie"):
                 st.dataframe(df, use_container_width=True)
 
             csv = df.to_csv(index=False).encode("utf-8")
