@@ -123,7 +123,7 @@ st.markdown(
     }}
 
     /* ---------- encabezado de estación ---------- */
-    .panel-hero {{ padding: 0 4px 24px 4px; }}
+    .panel-hero {{ padding: 0 22px 24px 22px; }}
     .panel-hero h1 {{
         font-family: 'Fraunces', serif;
         font-weight: 600;
@@ -134,9 +134,10 @@ st.markdown(
     }}
     .panel-hero p {{
         color: {MUTED};
-        font-size: 0.98rem;
+        font-size: 1.12rem;
+        line-height: 1.55;
         margin: 0 0 16px 0;
-        max-width: 62ch;
+        max-width: 78ch;
     }}
     .meta-row {{ display: flex; flex-wrap: wrap; gap: 8px; }}
     .meta-pill {{
