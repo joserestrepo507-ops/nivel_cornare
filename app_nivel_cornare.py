@@ -275,11 +275,13 @@ st.markdown(
     [data-testid="stExpanderDetails"] [data-testid="stCaptionContainer"] {{
         color: {MUTED} !important;
     }}
-    [data-testid="stCaptionContainer"] code {{
-        background: #C3D0D6 !important;
-        color: #000000 !important;
-        padding: 2px 7px;
+    .url-chip {{
+        background: #C3D0D6;
+        color: #000000;
+        padding: 2px 8px;
         border-radius: 5px;
+        font-family: monospace;
+        font-size: 0.85rem;
     }}
     </style>
     """,
@@ -786,7 +788,11 @@ elif consultar:
             # --- Detalle / depuración ---
             with st.expander("Datos crudos de la estación (para depurar)"):
                 if info_estacion:
-                    st.caption(f"Encontrados en: `{endpoint_usado}`")
+                    st.markdown(
+                        f'<div class="panel-note" style="margin-bottom:10px;">Encontrados en: '
+                        f'<span class="url-chip">{endpoint_usado}</span></div>',
+                        unsafe_allow_html=True,
+                    )
                     st.json(info_estacion)
                 else:
                     st.write("No se pudo obtener el registro de metadatos de la estación en ninguno de los endpoints probados.")
