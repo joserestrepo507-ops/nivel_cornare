@@ -174,10 +174,17 @@ st.markdown(
         flex-shrink: 0;
     }}
 
+    /* ---------- barra de control ---------- */
+    .control-label {{
+        color: {MUTED};
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }}
+
     /* ---------- widgets nativos ---------- */
-    [data-testid="stSidebar"] {{
+    [data-testid="stVerticalBlockBorderWrapper"] {{
         background: {PANEL};
-        border-right: 1px solid {LINE};
+        border-color: {LINE} !important;
     }}
     [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {{
         background: {ACCENT};
@@ -425,15 +432,6 @@ nombre_estacion_api = _valor_por_candidatos(info_estacion, CANDIDATOS_NOMBRE)
 titulo_app = nombre_estacion_api if nombre_estacion_api else f"Estación {CODIGO_ESTACION}"
 
 # ------------------------------------------------------------------
-# Sidebar
-# ------------------------------------------------------------------
-st.sidebar.markdown("**Parámetros de consulta**")
-fecha_desde = st.sidebar.date_input("Desde", pd.to_datetime("2026-08-23")).strftime("%Y-%m-%d")
-fecha_hasta = st.sidebar.date_input("Hasta", pd.to_datetime("2026-08-30")).strftime("%Y-%m-%d")
-calidad = st.sidebar.selectbox("Calidad", [1, 0], index=0, help="1 = solo datos validados")
-consultar = st.sidebar.button("Consultar", type="primary")
-
-# ------------------------------------------------------------------
 # Encabezado
 # ------------------------------------------------------------------
 st.markdown(
@@ -447,9 +445,31 @@ st.markdown(
 )
 
 # ------------------------------------------------------------------
+# Barra de control — en el panel principal, sin fechas predeterminadas
+# ------------------------------------------------------------------
+with st.container(border=True):
+    st.markdown('<div class="control-label">Parámetros de consulta</div>', unsafe_allow_html=True)
+    col_desde, col_hasta, col_calidad, col_boton = st.columns([1, 1, 1, 1])
+    with col_desde:
+        fecha_desde_val = st.date_input("Desde", value=None, format="YYYY/MM/DD")
+    with col_hasta:
+        fecha_hasta_val = st.date_input("Hasta", value=None, format="YYYY/MM/DD")
+    with col_calidad:
+        calidad = st.selectbox("Calidad", [1, 0], index=0, help="1 = solo datos validados")
+    with col_boton:
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
+        consultar = st.button("Consultar", type="primary", use_container_width=True)
+
+# ------------------------------------------------------------------
 # Consulta y procesamiento
 # ------------------------------------------------------------------
-if consultar:
+if consultar and (fecha_desde_val is None or fecha_hasta_val is None):
+    st.warning("Elige la fecha **desde** y la fecha **hasta** antes de consultar.")
+elif consultar and fecha_desde_val > fecha_hasta_val:
+    st.warning("La fecha **desde** no puede ser posterior a la fecha **hasta**.")
+elif consultar:
+    fecha_desde = fecha_desde_val.strftime("%Y-%m-%d")
+    fecha_hasta = fecha_hasta_val.strftime("%Y-%m-%d")
     with st.spinner("Consultando la API..."):
         datos_crudos, error = obtener_serie_nivel(CODIGO_ESTACION, fecha_desde, fecha_hasta, calidad)
 
@@ -497,41 +517,38 @@ if consultar:
             )
 
             # --- Gráfica ---
-            st.markdown('<div class="panel-block">', unsafe_allow_html=True)
-            st.markdown("<h3>Serie de nivel</h3>", unsafe_allow_html=True)
-            st.plotly_chart(grafico_nivel(df, mascara_outliers), use_container_width=True, config={"displayModeBar": False})
-            st.markdown('</div>', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("<h3>Serie de nivel</h3>", unsafe_allow_html=True)
+                st.plotly_chart(grafico_nivel(df, mascara_outliers), use_container_width=True, config={"displayModeBar": False})
 
             # --- Mapa ---
-            st.markdown('<div class="panel-block">', unsafe_allow_html=True)
-            st.markdown("<h3>Ubicación</h3>", unsafe_allow_html=True)
-            if not coords_reales:
+            with st.container(border=True):
+                st.markdown("<h3>Ubicación</h3>", unsafe_allow_html=True)
+                if not coords_reales:
+                    st.markdown(
+                        '<div class="panel-note">No se encontraron coordenadas reales de la estación en la API — '
+                        'se muestra el punto de partida (Pascual Bravo) como referencia. Revisa "Datos crudos de la estación" más abajo.</div>',
+                        unsafe_allow_html=True,
+                    )
+                st.pydeck_chart(mapa_estacion(lat, lon, nombre_estacion_api), use_container_width=True)
                 st.markdown(
-                    f'<div class="panel-note">No se encontraron coordenadas reales de la estación en la API — '
-                    f'se muestra el punto de partida (Pascual Bravo) como referencia. Revisa "Datos crudos de la estación" más abajo.</div>',
+                    f'<div class="coord-readout">lat <span>{lat:.5f}</span> · lon <span>{lon:.5f}</span></div>',
                     unsafe_allow_html=True,
                 )
-            st.pydeck_chart(mapa_estacion(lat, lon, nombre_estacion_api), use_container_width=True)
-            st.markdown(
-                f'<div class="coord-readout">lat <span>{lat:.5f}</span> · lon <span>{lon:.5f}</span></div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
 
             # --- Fotos ---
-            st.markdown('<div class="panel-block">', unsafe_allow_html=True)
-            st.markdown("<h3>Registro fotográfico</h3>", unsafe_allow_html=True)
-            if fotos:
-                imgs_html = "".join(f'<img src="{url}">' for url in fotos)
-                st.markdown(f'<div class="filmstrip">{imgs_html}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(
-                    '<div class="panel-note">No se encontraron fotos de la estación en la respuesta de la API. '
-                    'Si sabes que existen, revisa "Datos crudos de la estación" para ubicar el nombre real del campo '
-                    'y agrégalo a <code>CANDIDATOS_FOTOS</code>.</div>',
-                    unsafe_allow_html=True,
-                )
-            st.markdown('</div>', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("<h3>Registro fotográfico</h3>", unsafe_allow_html=True)
+                if fotos:
+                    imgs_html = "".join(f'<img src="{url}">' for url in fotos)
+                    st.markdown(f'<div class="filmstrip">{imgs_html}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<div class="panel-note">No se encontraron fotos de la estación en la respuesta de la API. '
+                        'Si sabes que existen, revisa "Datos crudos de la estación" para ubicar el nombre real del campo '
+                        'y agrégalo a <code>CANDIDATOS_FOTOS</code>.</div>',
+                        unsafe_allow_html=True,
+                    )
 
             # --- Detalle / depuración ---
             with st.expander("Datos crudos de la estación (para depurar)"):
@@ -552,4 +569,4 @@ if consultar:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("Descargar CSV", csv, file_name=f"nivel_estacion_{CODIGO_ESTACION}.csv", mime="text/csv")
 else:
-    st.info("Ajusta el rango de fechas en el panel lateral y presiona **Consultar**.")
+    st.info("Elige el rango de fechas arriba y presiona **Consultar**.")
