@@ -220,6 +220,12 @@ st.markdown(
         color: #000000 !important;
         margin: 0 0 4px 0;
     }}
+    .panel-title {{
+        font-weight: 600;
+        font-size: 1.02rem;
+        color: #000000 !important;
+        margin: 0 0 4px 0;
+    }}
     /* Cinturón de seguridad: cualquier texto de Streamlit dentro de estos paneles
        (st.caption, st.write, st.markdown sin clase propia) hereda a veces el color
        claro del tema por defecto en vez del nuestro. Se fuerza aquí también. */
@@ -698,12 +704,12 @@ elif consultar:
 
             # --- Gráfica ---
             with st.container(border=True):
-                st.markdown("<h3>Serie de nivel</h3>", unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">Serie de nivel</div>', unsafe_allow_html=True)
                 st.plotly_chart(grafico_nivel(df, mascara_outliers), use_container_width=True, config={"displayModeBar": False})
 
             # --- Eventos de crecida (función nueva) ---
             with st.container(border=True):
-                st.markdown("<h3>Eventos de crecida detectados</h3>", unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">Eventos de crecida detectados</div>', unsafe_allow_html=True)
                 st.markdown(
                     '<div class="panel-note">Agrupa los outliers consecutivos de la gráfica en episodios de crecida, '
                     'con su fecha de inicio, fin, pico y duración.</div>',
@@ -732,7 +738,7 @@ elif consultar:
 
             # --- Mapa (sin cambios de estilo respecto a la versión anterior) ---
             with st.container(border=True):
-                st.markdown("<h3>Ubicación</h3>", unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">Ubicación</div>', unsafe_allow_html=True)
                 if not coords_reales:
                     st.markdown(
                         '<div class="panel-note">No se encontraron coordenadas reales de la estación en la API — '
@@ -747,7 +753,7 @@ elif consultar:
 
             # --- Fotos ---
             with st.container(border=True):
-                st.markdown("<h3>Registro fotográfico</h3>", unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">Registro fotográfico</div>', unsafe_allow_html=True)
                 if fotos:
                     imgs_html = "".join(f'<img src="{url}">' for url in fotos)
                     st.markdown(f'<div class="filmstrip">{imgs_html}</div>', unsafe_allow_html=True)
