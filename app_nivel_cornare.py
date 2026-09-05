@@ -3,13 +3,13 @@ Panel de estación — Nivel de ríos/quebradas (CORNARE / MARCO)
 --------------------------------------------------------------------
 Fijada a la estación 23 (José Daniel Restrepo Ramírez). El código de
 estación no es editable: vive en CODIGO_ESTACION.
- 
+
 Para correrla (recuerda mantener la carpeta .streamlit/ junto a este
 archivo para que cargue el tema claro):
     streamlit run app_nivel_cornare.py
- 
+
 Requiere: streamlit>=1.25, pandas, numpy, requests, plotly, pydeck, openpyxl.
- 
+
 Nota sobre ubicación, fotos y metadatos:
 El endpoint de "nivel" solo trae fecha/valor, no metadatos de la
 estación. Por eso esta app también consulta el LISTADO de estaciones
@@ -20,7 +20,7 @@ nombres comunes (ver CANDIDATOS_* más abajo). Si el mapa, el título,
 las fotos o el contexto no salen bien, abre "Datos crudos de la
 estación" para ver las llaves reales y ajústalas ahí.
 """
- 
+
 import io
 import requests
 import pandas as pd
@@ -29,25 +29,25 @@ import streamlit as st
 import plotly.graph_objects as go
 import pydeck as pdk
 import urllib3
- 
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
- 
+
 # ------------------------------------------------------------------
 # Estación fija de esta app
 # ------------------------------------------------------------------
 CODIGO_ESTACION = "23"
- 
+
 # Coordenadas por defecto (Institución Universitaria Pascual Bravo) —
 # se usan solo si no logramos encontrar la ubicación real.
 LAT_DEFECTO = 6.2766
 LON_DEFECTO = -75.5901
- 
+
 API_BASE_URL = "https://marco.cornare.gov.co/api/v1/estaciones"
 LLAVE_FECHA = "level_date"
 LLAVE_VALOR = "level"
- 
+
 ENDPOINTS_INFO_ESTACION = ["{base}/{codigo}/", "{base}/{codigo}", "{base}/"]
- 
+
 CANDIDATOS_ID = ["id", "codigo", "code", "station_id", "id_estacion"]
 CANDIDATOS_LAT = ["lat", "latitude", "latitud"]
 CANDIDATOS_LON = ["lng", "lon", "long", "longitude", "longitud"]
@@ -62,7 +62,7 @@ CANDIDATOS_FOTOS = [
     "image", "images", "picture", "pictures", "url_foto", "foto_url",
     "imagen_url", "photo_url",
 ]
- 
+
 # ------------------------------------------------------------------
 # Paleta y tipografía — tema claro, inspirado en el geoportal MARCO
 # ------------------------------------------------------------------
@@ -76,20 +76,20 @@ ACCENT_SOFT = "#E7F1F8"   # fondo suave para insignias
 ACCENT_WARM = "#D9820B"   # ámbar de alerta — outliers / crecidas
 MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
 SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
- 
+
 st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
- 
+
 st.markdown(
     f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
- 
+
     html, body, [class*="css"] {{
         font-family: 'Inter', sans-serif;
     }}
     .stApp {{ background: {BG}; }}
     .block-container {{ padding-top: 4rem; max-width: 1180px; }}
- 
+
     /* ---------- topbar de marca ---------- */
     .topbar {{
         display: flex;
@@ -121,7 +121,7 @@ st.markdown(
         padding: 7px 16px;
         border-radius: 999px;
     }}
- 
+
     /* ---------- encabezado de estación ---------- */
     .panel-hero {{ padding: 0 4px 24px 4px; }}
     .panel-hero h1 {{
@@ -148,7 +148,7 @@ st.markdown(
         border-radius: 999px;
     }}
     .meta-pill b {{ color: {TEXT}; font-weight: 600; }}
- 
+
     /* ---------- franja de lecturas ---------- */
     .readout-strip {{ display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 24px 0; }}
     .readout {{
@@ -172,7 +172,7 @@ st.markdown(
     .readout-sub {{ color: {MUTED}; font-size: 0.78rem; margin-top: 4px; }}
     .readout-sub.up {{ color: {ACCENT_WARM}; }}
     .readout-sub.down {{ color: {ACCENT}; }}
- 
+
     /* ---------- notas y detalle de coordenadas ---------- */
     .panel-note {{ color: {MUTED}; font-size: 0.88rem; margin-bottom: 14px; }}
     .coord-readout {{
@@ -182,7 +182,7 @@ st.markdown(
         padding-top: 12px;
     }}
     .coord-readout span {{ color: {ACCENT}; font-weight: 600; }}
- 
+
     /* ---------- tira de fotos ---------- */
     .filmstrip {{ display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }}
     .filmstrip img {{
@@ -192,7 +192,7 @@ st.markdown(
         border: 1px solid {LINE};
         flex-shrink: 0;
     }}
- 
+
     /* ---------- eventos de crecida ---------- */
     .evento-fila {{
         display: flex;
@@ -206,7 +206,7 @@ st.markdown(
     .evento-fila:last-child {{ border-bottom: none; }}
     .evento-fecha {{ color: {MUTED}; }}
     .evento-pico {{ color: {ACCENT_WARM}; font-weight: 600; font-variant-numeric: tabular-nums; }}
- 
+
     /* ---------- paneles con borde (st.container(border=True)) ---------- */
     [data-testid="stVerticalBlockBorderWrapper"] {{
         background: {PANEL};
@@ -231,7 +231,7 @@ st.markdown(
     }}
     .control-label {{ color: {MUTED}; font-size: 0.8rem; margin-bottom: 10px; }}
     [data-testid="stWidgetLabel"] p {{ color: {TEXT} !important; }}
- 
+
     /* ---------- widgets nativos ---------- */
     [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {{
         background: {ACCENT};
@@ -261,8 +261,8 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
- 
- 
+
+
 # ------------------------------------------------------------------
 # Funciones de consulta — serie de nivel
 # ------------------------------------------------------------------
@@ -280,8 +280,8 @@ def obtener_serie_nivel(codigo_estacion, desde, hasta, calidad=1, timeout=30):
         return None, f"HTTP {resp.status_code}"
     except requests.exceptions.RequestException as e:
         return None, f"Error de red: {e}"
- 
- 
+
+
 def obtener_todas_las_paginas(datos_json, timeout=30):
     registros = list(datos_json.get("values", []))
     siguiente_url = datos_json.get("next")
@@ -296,8 +296,8 @@ def obtener_todas_las_paginas(datos_json, timeout=30):
         registros.extend(pagina.get("values", []))
         siguiente_url = pagina.get("next")
     return registros
- 
- 
+
+
 # ------------------------------------------------------------------
 # Funciones de consulta — metadatos de la estación
 # ------------------------------------------------------------------
@@ -308,8 +308,8 @@ def _valor_por_candidatos(d, candidatos):
         if k in d and d[k] not in (None, ""):
             return d[k]
     return None
- 
- 
+
+
 def _buscar_estacion_en_lista(lista, codigo_estacion):
     if not isinstance(lista, list):
         return None
@@ -321,8 +321,8 @@ def _buscar_estacion_en_lista(lista, codigo_estacion):
         if candidato_id is not None and str(candidato_id).strip() == codigo_str:
             return item
     return None
- 
- 
+
+
 @st.cache_data(show_spinner=False, ttl=3600)
 def obtener_info_estacion(codigo_estacion, timeout=20):
     headers = {
@@ -341,10 +341,10 @@ def obtener_info_estacion(codigo_estacion, timeout=20):
             data = resp.json()
         except ValueError:
             continue
- 
+
         if isinstance(data, dict) and _valor_por_candidatos(data, CANDIDATOS_LAT) is not None:
             return data, url
- 
+
         lista = data.get("values") if isinstance(data, dict) else data
         if isinstance(data, dict) and lista is None:
             for k in ("results", "estaciones", "data"):
@@ -355,10 +355,10 @@ def obtener_info_estacion(codigo_estacion, timeout=20):
             encontrada = _buscar_estacion_en_lista(lista, codigo_estacion)
             if encontrada:
                 return encontrada, url
- 
+
     return None, None
- 
- 
+
+
 def detectar_coordenadas(info_estacion):
     lat = _valor_por_candidatos(info_estacion, CANDIDATOS_LAT)
     lon = _valor_por_candidatos(info_estacion, CANDIDATOS_LON)
@@ -368,15 +368,15 @@ def detectar_coordenadas(info_estacion):
         except (TypeError, ValueError):
             pass
     return LAT_DEFECTO, LON_DEFECTO, False
- 
- 
+
+
 def detectar_fotos(info_estacion):
     if not isinstance(info_estacion, dict):
         return []
     valor = _valor_por_candidatos(info_estacion, CANDIDATOS_FOTOS)
     if valor is None:
         return []
- 
+
     urls = []
     if isinstance(valor, str):
         urls.append(valor)
@@ -388,15 +388,15 @@ def detectar_fotos(info_estacion):
                 sub_url = _valor_por_candidatos(elem, ["url", "foto", "imagen", "image", "photo", "src", "link"])
                 if sub_url:
                     urls.append(sub_url)
- 
+
     vistos, urls_limpias = set(), []
     for u in urls:
         if u and u not in vistos:
             vistos.add(u)
             urls_limpias.append(u)
     return urls_limpias
- 
- 
+
+
 def construir_pills_contexto(info_estacion):
     """Arma insignias de contexto (corriente, municipio, cuenca, tipo, altitud) con lo que
     realmente exista en los metadatos de la API. Las que no se encuentren simplemente no se muestran."""
@@ -413,38 +413,38 @@ def construir_pills_contexto(info_estacion):
             texto = f"{valor} m" if etiqueta == "Altitud" and str(valor).replace(".", "", 1).isdigit() else str(valor)
             pills.append(f'<div class="meta-pill">{etiqueta}: <b>{texto}</b></div>')
     return pills
- 
- 
+
+
 def calcular_calidad(df):
     """Devuelve indice(0-100), huecos, n_outliers, y una máscara booleana de outliers alineada a df."""
     if df.empty or len(df) < 2:
         return 0.0, 0, 0, pd.Series(False, index=df.index)
- 
+
     df_idx = df.set_index("fecha")
     frecuencia_tipica = df["fecha"].diff().dropna().mode()
     if len(frecuencia_tipica) == 0:
         return 0.0, 0, 0, pd.Series(False, index=df.index)
     frecuencia_tipica = frecuencia_tipica[0]
- 
+
     rango_completo = pd.date_range(start=df_idx.index.min(), end=df_idx.index.max(), freq=frecuencia_tipica)
     esperados = len(rango_completo)
     huecos = esperados - len(df_idx)
     completitud = max(0.0, 1 - (huecos / esperados)) if esperados > 0 else 0.0
- 
+
     Q1, Q3 = df["nivel"].quantile(0.25), df["nivel"].quantile(0.75)
     IQR = Q3 - Q1
     lim_inf, lim_sup = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
     es_outlier = (df["nivel"] < lim_inf) | (df["nivel"] > lim_sup) | (df["nivel"] < 0)
     proporcion_outliers = es_outlier.mean()
- 
+
     indice = (completitud * 0.7 + (1 - proporcion_outliers) * 0.3) * 100
     return round(indice, 1), int(huecos), int(es_outlier.sum()), es_outlier
- 
- 
+
+
 GAP_FUSION_EVENTOS = pd.Timedelta(hours=1)  # rachas de outliers separadas por menos de esto se fusionan en un solo evento
 MAX_EVENTOS_MOSTRADOS = 12
- 
- 
+
+
 def detectar_eventos_crecida(df, es_outlier, gap_fusion=GAP_FUSION_EVENTOS):
     """
     Agrupa outliers consecutivos en 'eventos de crecida' (inicio, fin, pico, duración).
@@ -454,13 +454,13 @@ def detectar_eventos_crecida(df, es_outlier, gap_fusion=GAP_FUSION_EVENTOS):
     """
     if not es_outlier.any():
         return pd.DataFrame(columns=["inicio", "fin", "pico", "duracion_h"])
- 
+
     grupos = (es_outlier != es_outlier.shift()).cumsum()
     rachas = []
     for _, sub in df[es_outlier].groupby(grupos[es_outlier]):
         rachas.append({"inicio": sub["fecha"].min(), "fin": sub["fecha"].max(), "pico": sub["nivel"].max()})
     rachas.sort(key=lambda r: r["inicio"])
- 
+
     eventos = []
     for racha in rachas:
         if eventos and (racha["inicio"] - eventos[-1]["fin"]) <= gap_fusion:
@@ -468,13 +468,13 @@ def detectar_eventos_crecida(df, es_outlier, gap_fusion=GAP_FUSION_EVENTOS):
             eventos[-1]["pico"] = max(eventos[-1]["pico"], racha["pico"])
         else:
             eventos.append(dict(racha))
- 
+
     for ev in eventos:
         ev["duracion_h"] = round((ev["fin"] - ev["inicio"]).total_seconds() / 3600, 1)
- 
+
     return pd.DataFrame(eventos).sort_values("inicio", ascending=False).reset_index(drop=True)
- 
- 
+
+
 def grafico_nivel(df, es_outlier):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -503,8 +503,8 @@ def grafico_nivel(df, es_outlier):
         hoverlabel=dict(bgcolor=PANEL, font_color=TEXT, bordercolor=LINE),
     )
     return fig
- 
- 
+
+
 def mapa_estacion(lat, lon, nombre):
     """Mapa sin cambios respecto a la versión anterior: estilo oscuro nativo de pydeck."""
     capa_punto = pdk.Layer(
@@ -530,15 +530,15 @@ def mapa_estacion(lat, lon, nombre):
         map_style="dark",
         tooltip={"text": nombre or f"Estación {CODIGO_ESTACION}"},
     )
- 
- 
+
+
 def exportar_excel(df):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="nivel")
     return buffer.getvalue()
- 
- 
+
+
 # ------------------------------------------------------------------
 # Info de la estación — se obtiene siempre, así el título y el
 # contexto ya salen con datos reales aunque no se haya consultado
@@ -547,7 +547,7 @@ info_estacion, endpoint_usado = obtener_info_estacion(CODIGO_ESTACION)
 nombre_estacion_api = _valor_por_candidatos(info_estacion, CANDIDATOS_NOMBRE)
 titulo_app = nombre_estacion_api if nombre_estacion_api else f"Estación {CODIGO_ESTACION}"
 pills_contexto = construir_pills_contexto(info_estacion)
- 
+
 # ------------------------------------------------------------------
 # Topbar de marca
 # ------------------------------------------------------------------
@@ -566,7 +566,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
- 
+
 # ------------------------------------------------------------------
 # Encabezado de la estación — contexto ampliado
 # ------------------------------------------------------------------
@@ -590,7 +590,7 @@ if not pills_contexto:
         f'revisa "Datos crudos de la estación" más abajo para confirmar los nombres reales de esos campos.</p>',
         unsafe_allow_html=True,
     )
- 
+
 # ------------------------------------------------------------------
 # Barra de control — sin fechas predeterminadas
 # ------------------------------------------------------------------
@@ -606,9 +606,9 @@ with st.container(border=True):
     with col_boton:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         consultar = st.button("Consultar", type="primary", use_container_width=True)
- 
+
 st.markdown('<div style="height: 22px;"></div>', unsafe_allow_html=True)
- 
+
 # ------------------------------------------------------------------
 # Consulta y procesamiento
 # ------------------------------------------------------------------
@@ -621,12 +621,12 @@ elif consultar:
     fecha_hasta = fecha_hasta_val.strftime("%Y-%m-%d")
     with st.spinner("Consultando la API..."):
         datos_crudos, error = obtener_serie_nivel(CODIGO_ESTACION, fecha_desde, fecha_hasta, calidad)
- 
+
     if error:
         st.error(f"No se pudo consultar la estación: {error}")
     else:
         registros = obtener_todas_las_paginas(datos_crudos)
- 
+
         if not registros:
             st.warning("No hay registros para este rango de fechas. Prueba otro rango.")
         else:
@@ -639,12 +639,12 @@ elif consultar:
                 df["fecha"] = df["fecha"].dt.tz_localize(None)
             df["nivel"] = pd.to_numeric(df["nivel"], errors="coerce")
             df = df.dropna(subset=["fecha", "nivel"]).sort_values("fecha").reset_index(drop=True)
- 
+
             lat, lon, coords_reales = detectar_coordenadas(info_estacion)
             fotos = detectar_fotos(info_estacion)
             indice_calidad, huecos, n_outliers, mascara_outliers = calcular_calidad(df)
             eventos = detectar_eventos_crecida(df, mascara_outliers)
- 
+
             # --- Última lectura y tendencia ---
             ultimo = df.iloc[-1]
             penultimo = df.iloc[-2] if len(df) > 1 else ultimo
@@ -655,12 +655,12 @@ elif consultar:
                 tendencia_txt, tendencia_clase, flecha = "bajando", "down", "▼"
             else:
                 tendencia_txt, tendencia_clase, flecha = "estable", "", "—"
- 
+
             # --- Nivel máximo registrado ---
             idx_max = df["nivel"].idxmax()
             nivel_max = df.loc[idx_max, "nivel"]
             fecha_max = df.loc[idx_max, "fecha"]
- 
+
             # --- Franja de lecturas ---
             st.markdown(
                 f"""
@@ -695,12 +695,12 @@ elif consultar:
                 """,
                 unsafe_allow_html=True,
             )
- 
+
             # --- Gráfica ---
             with st.container(border=True):
                 st.markdown("<h3>Serie de nivel</h3>", unsafe_allow_html=True)
                 st.plotly_chart(grafico_nivel(df, mascara_outliers), use_container_width=True, config={"displayModeBar": False})
- 
+
             # --- Eventos de crecida (función nueva) ---
             with st.container(border=True):
                 st.markdown("<h3>Eventos de crecida detectados</h3>", unsafe_allow_html=True)
@@ -729,7 +729,7 @@ elif consultar:
                             f'Mostrando los {MAX_EVENTOS_MOSTRADOS} eventos más recientes de {len(eventos)} detectados en total.</div>',
                             unsafe_allow_html=True,
                         )
- 
+
             # --- Mapa (sin cambios de estilo respecto a la versión anterior) ---
             with st.container(border=True):
                 st.markdown("<h3>Ubicación</h3>", unsafe_allow_html=True)
@@ -744,7 +744,7 @@ elif consultar:
                     f'<div class="coord-readout">lat <span>{lat:.5f}</span> · lon <span>{lon:.5f}</span></div>',
                     unsafe_allow_html=True,
                 )
- 
+
             # --- Fotos ---
             with st.container(border=True):
                 st.markdown("<h3>Registro fotográfico</h3>", unsafe_allow_html=True)
@@ -758,7 +758,7 @@ elif consultar:
                         'y agrégalo a <code>CANDIDATOS_FOTOS</code>.</div>',
                         unsafe_allow_html=True,
                     )
- 
+
             # --- Detalle / depuración ---
             with st.expander("Datos crudos de la estación (para depurar)"):
                 if info_estacion:
@@ -766,15 +766,15 @@ elif consultar:
                     st.json(info_estacion)
                 else:
                     st.write("No se pudo obtener el registro de metadatos de la estación en ninguno de los endpoints probados.")
- 
+
             with st.expander("Detalle del índice de calidad"):
                 st.write(f"- Huecos de reporte detectados: **{huecos}**")
                 st.write(f"- Outliers (IQR + nivel negativo): **{n_outliers}** de {len(df)} lecturas")
                 st.write("El índice combina completitud de la serie (70%) y proporción de datos sin outliers (30%).")
- 
+
             with st.expander("Ver datos crudos de la serie"):
                 st.dataframe(df, use_container_width=True)
- 
+
             # --- Descargas (CSV + Excel) ---
             col_csv, col_xlsx = st.columns(2)
             with col_csv:
