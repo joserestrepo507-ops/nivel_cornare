@@ -277,7 +277,7 @@ st.markdown(
     }}
     [data-testid="stCaptionContainer"] code {{
         background: #C3D0D6 !important;
-        color: {TEXT} !important;
+        color: #000000 !important;
         padding: 2px 7px;
         border-radius: 5px;
     }}
