@@ -77,7 +77,7 @@ ACCENT_WARM = "#D9820B"   # ámbar de alerta — outliers / crecidas
 MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
 SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
 
-st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
+st.set_page_config(page_title="Estación 23", page_icon="🌊", layout="wide")
 
 st.markdown(
     f"""
