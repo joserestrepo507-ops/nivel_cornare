@@ -275,6 +275,12 @@ st.markdown(
     [data-testid="stExpanderDetails"] [data-testid="stCaptionContainer"] {{
         color: {MUTED} !important;
     }}
+    [data-testid="stCaptionContainer"] code {{
+        background: #C3D0D6 !important;
+        color: {TEXT} !important;
+        padding: 2px 7px;
+        border-radius: 5px;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
