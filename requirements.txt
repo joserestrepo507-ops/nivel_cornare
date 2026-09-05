@@ -5,3 +5,10 @@ requests
 urllib3
 plotly
 pydeck
+openpyxl
+
+
+
+
+
+
