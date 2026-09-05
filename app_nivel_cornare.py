@@ -217,8 +217,17 @@ st.markdown(
     [data-testid="stVerticalBlockBorderWrapper"] h3 {{
         font-weight: 600;
         font-size: 1.02rem;
-        color: {TEXT};
+        color: {TEXT} !important;
         margin: 0 0 4px 0;
+    }}
+    /* Cinturón de seguridad: cualquier texto de Streamlit dentro de estos paneles
+       (st.caption, st.write, st.markdown sin clase propia) hereda a veces el color
+       claro del tema por defecto en vez del nuestro. Se fuerza aquí también. */
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stCaptionContainer"] {{
+        color: {MUTED} !important;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] > p {{
+        color: {TEXT} !important;
     }}
     .control-label {{ color: {MUTED}; font-size: 0.8rem; margin-bottom: 10px; }}
     [data-testid="stWidgetLabel"] p {{ color: {TEXT} !important; }}
