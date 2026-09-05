@@ -111,7 +111,7 @@ st.markdown(
         display: flex; align-items: center; justify-content: center;
         font-size: 1.15rem;
     }}
-    .brand-name {{ font-weight: 700; color: {TEXT}; font-size: 1.05rem; line-height: 1.2; }}
+    .brand-name {{ font-weight: 700; color: #000000 !important; font-size: 1.05rem; line-height: 1.2; }}
     .brand-sub {{ color: {MUTED}; font-size: 0.82rem; }}
     .topbar-badge {{
         background: {ACCENT_SOFT};
@@ -129,7 +129,7 @@ st.markdown(
         font-weight: 600;
         font-size: 2.5rem;
         line-height: 1.15;
-        color: {TEXT};
+        color: #000000 !important;
         margin: 0 0 8px 0;
     }}
     .panel-hero p {{
@@ -217,7 +217,7 @@ st.markdown(
     [data-testid="stVerticalBlockBorderWrapper"] h3 {{
         font-weight: 600;
         font-size: 1.02rem;
-        color: {TEXT} !important;
+        color: #000000 !important;
         margin: 0 0 4px 0;
     }}
     /* Cinturón de seguridad: cualquier texto de Streamlit dentro de estos paneles
