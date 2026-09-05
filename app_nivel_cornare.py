@@ -66,14 +66,14 @@ CANDIDATOS_FOTOS = [
 # ------------------------------------------------------------------
 # Paleta y tipografía — tema claro, inspirado en el geoportal MARCO
 # ------------------------------------------------------------------
-BG = "#F5F7F6"
+BG = "#F3F7FA"
 PANEL = "#FFFFFF"
-LINE = "#E2E8E6"
-TEXT = "#182722"
-MUTED = "#5C726C"
-ACCENT = "#1F7A4D"        # verde Cornare — marca, botones, cifras
-ACCENT_SOFT = "#E9F4EE"   # fondo suave para insignias
-ACCENT_WARM = "#C2703A"   # alertas / outliers / crecidas
+LINE = "#DCE6EC"
+TEXT = "#152733"
+MUTED = "#5B7686"
+ACCENT = "#1170A8"        # azul río — marca, botones, cifras principales
+ACCENT_SOFT = "#E7F1F8"   # fondo suave para insignias
+ACCENT_WARM = "#D9820B"   # ámbar de alerta — outliers / crecidas
 MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
 SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
 
@@ -233,7 +233,7 @@ st.markdown(
         padding: 0.5rem 1.1rem;
     }}
     [data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover {{
-        background: #17603C;
+        background: #0C5680;
         color: white;
     }}
     [data-testid="stExpander"] {{
@@ -472,7 +472,7 @@ def grafico_nivel(df, es_outlier):
         x=df["fecha"], y=df["nivel"],
         mode="lines", name="Nivel",
         line=dict(color=ACCENT, width=1.8),
-        fill="tozeroy", fillcolor="rgba(31, 122, 77, 0.10)",
+        fill="tozeroy", fillcolor="rgba(17, 112, 168, 0.12)",
         hovertemplate="%{x|%d %b, %H:%M}<br>%{y:.2f}<extra></extra>",
     ))
     if es_outlier.any():
