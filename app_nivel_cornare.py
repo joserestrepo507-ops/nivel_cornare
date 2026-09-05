@@ -255,6 +255,7 @@ st.markdown(
         border: 1px solid {LINE};
         border-radius: 14px;
         background: {PANEL};
+        overflow: hidden;
     }}
     /* Fuerza texto e ícono oscuros en el encabezado del expander — si el tema
        activo en Streamlit Cloud no coincide con nuestro config.toml (por ejemplo,
@@ -263,6 +264,16 @@ st.markdown(
     [data-testid="stExpander"] summary {{ color: {TEXT} !important; }}
     [data-testid="stExpander"] summary p {{ color: {TEXT} !important; }}
     [data-testid="stExpander"] summary svg {{ fill: {TEXT} !important; }}
+    /* Lo mismo, pero para el contenido de adentro una vez abierto: st.write,
+       st.caption y las etiquetas de st.json / st.dataframe. */
+    [data-testid="stExpanderDetails"] {{ background: {PANEL}; }}
+    [data-testid="stExpanderDetails"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stExpanderDetails"] [data-testid="stMarkdownContainer"] li {{
+        color: {TEXT} !important;
+    }}
+    [data-testid="stExpanderDetails"] [data-testid="stCaptionContainer"] {{
+        color: {MUTED} !important;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
