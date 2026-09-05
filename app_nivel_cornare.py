@@ -261,7 +261,8 @@ st.markdown(
        activo en Streamlit Cloud no coincide con nuestro config.toml (por ejemplo,
        si alguien fijó un tema manual en la configuración de la app), el texto por
        defecto queda claro sobre nuestro fondo blanco y se vuelve invisible. */
-    [data-testid="stExpander"] summary {{ color: {TEXT} !important; }}
+    [data-testid="stExpander"] summary {{ color: {TEXT} !important; background: {PANEL} !important; }}
+    [data-testid="stExpander"] summary > div {{ background: {PANEL} !important; }}
     [data-testid="stExpander"] summary p {{ color: {TEXT} !important; }}
     [data-testid="stExpander"] summary svg {{ fill: {TEXT} !important; }}
     /* Lo mismo, pero para el contenido de adentro una vez abierto: st.write,
