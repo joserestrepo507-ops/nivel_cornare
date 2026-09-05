@@ -5,23 +5,23 @@ Fijada a la estación 23 (José Daniel Restrepo Ramírez). El código de
 estación no es editable: vive en CODIGO_ESTACION.
 
 Para correrla (recuerda mantener la carpeta .streamlit/ junto a este
-archivo para que cargue el tema oscuro):
+archivo para que cargue el tema claro):
     streamlit run app_nivel_cornare.py
 
-Requiere: streamlit>=1.25 (para mapas pydeck con estilo oscuro sin
-token de Mapbox), pandas, numpy, requests, plotly, pydeck.
+Requiere: streamlit>=1.25, pandas, numpy, requests, plotly, pydeck, openpyxl.
 
-Nota sobre ubicación y fotos:
+Nota sobre ubicación, fotos y metadatos:
 El endpoint de "nivel" solo trae fecha/valor, no metadatos de la
 estación. Por eso esta app también consulta el LISTADO de estaciones
-(que sí trae nombre, coordenadas y -si existen- fotos) y busca ahí la
-estación 23. No conozco de antemano los nombres exactos de esas llaves
-en la API real, así que se prueban varios nombres comunes (ver
-CANDIDATOS_* más abajo). Si el mapa, el título o las fotos no salen
-bien, abre "Datos crudos de la estación" para ver las llaves reales
-y ajústalas ahí.
+(que sí trae nombre, coordenadas, corriente, municipio y -si existen-
+fotos) y busca ahí la estación 23. No conozco de antemano los nombres
+exactos de esas llaves en la API real, así que se prueban varios
+nombres comunes (ver CANDIDATOS_* más abajo). Si el mapa, el título,
+las fotos o el contexto no salen bien, abre "Datos crudos de la
+estación" para ver las llaves reales y ajústalas ahí.
 """
 
+import io
 import requests
 import pandas as pd
 import numpy as np
@@ -52,6 +52,11 @@ CANDIDATOS_ID = ["id", "codigo", "code", "station_id", "id_estacion"]
 CANDIDATOS_LAT = ["lat", "latitude", "latitud"]
 CANDIDATOS_LON = ["lng", "lon", "long", "longitude", "longitud"]
 CANDIDATOS_NOMBRE = ["nombre", "name", "station_name", "nombre_estacion"]
+CANDIDATOS_CORRIENTE = ["corriente", "stream", "rio", "quebrada", "water_body", "cuerpo_agua"]
+CANDIDATOS_MUNICIPIO = ["municipio", "town", "city", "municipality"]
+CANDIDATOS_TIPO = ["tipo", "type", "station_type", "tipo_estacion"]
+CANDIDATOS_ALTITUD = ["altitud", "elevation", "alt", "altitude"]
+CANDIDATOS_CUENCA = ["cuenca", "basin", "subcuenca"]
 CANDIDATOS_FOTOS = [
     "foto", "fotos", "imagen", "imagenes", "photo", "photos",
     "image", "images", "picture", "pictures", "url_foto", "foto_url",
@@ -59,41 +64,70 @@ CANDIDATOS_FOTOS = [
 ]
 
 # ------------------------------------------------------------------
-# Paleta y tipografía — panel de instrumento hidrométrico
+# Paleta y tipografía — tema claro, inspirado en el geoportal MARCO
 # ------------------------------------------------------------------
-BG = "#101B1A"
-PANEL = "#16211F"
-LINE = "#283B39"
-TEXT = "#EAF3F1"
-MUTED = "#86A19E"
-ACCENT = "#57C3D3"
-ACCENT_WARM = "#D98B4A"
+BG = "#F5F7F6"
+PANEL = "#FFFFFF"
+LINE = "#E2E8E6"
+TEXT = "#182722"
+MUTED = "#5C726C"
+ACCENT = "#1F7A4D"        # verde Cornare — marca, botones, cifras
+ACCENT_SOFT = "#E9F4EE"   # fondo suave para insignias
+ACCENT_WARM = "#C2703A"   # alertas / outliers / crecidas
+MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
+SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
 
 st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
 
 st.markdown(
     f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
 
     html, body, [class*="css"] {{
         font-family: 'Inter', sans-serif;
     }}
+    .stApp {{ background: {BG}; }}
+    .block-container {{ padding-top: 1.2rem; max-width: 1180px; }}
 
-    .stApp {{
-        background: {BG};
+    /* ---------- topbar de marca ---------- */
+    .topbar {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: {PANEL};
+        border: 1px solid {LINE};
+        border-radius: 16px;
+        box-shadow: {SHADOW};
+        padding: 14px 22px;
+        margin-bottom: 30px;
+    }}
+    .topbar-left {{ display: flex; align-items: center; gap: 14px; }}
+    .brand-mark {{
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        background: {ACCENT};
+        color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.15rem;
+    }}
+    .brand-name {{ font-weight: 700; color: {TEXT}; font-size: 1.05rem; line-height: 1.2; }}
+    .brand-sub {{ color: {MUTED}; font-size: 0.82rem; }}
+    .topbar-badge {{
+        background: {ACCENT_SOFT};
+        color: {ACCENT};
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 7px 16px;
+        border-radius: 999px;
     }}
 
-    /* ---------- encabezado ---------- */
-    .panel-hero {{
-        padding: 6px 0 26px 0;
-        border-bottom: 1px solid {LINE};
-        margin-bottom: 28px;
-    }}
+    /* ---------- encabezado de estación ---------- */
+    .panel-hero {{ padding: 0 4px 24px 4px; }}
     .panel-hero h1 {{
         font-family: 'Fraunces', serif;
-        font-weight: 500;
-        font-size: 2.6rem;
+        font-weight: 600;
+        font-size: 2.5rem;
         line-height: 1.15;
         color: {TEXT};
         margin: 0 0 8px 0;
@@ -101,104 +135,109 @@ st.markdown(
     .panel-hero p {{
         color: {MUTED};
         font-size: 0.98rem;
-        margin: 0;
-        max-width: 60ch;
+        margin: 0 0 16px 0;
+        max-width: 62ch;
     }}
-
-    /* ---------- franja de lecturas tipo instrumento ---------- */
-    .readout-strip {{
-        display: flex;
-        flex-wrap: wrap;
-        border-top: 1px solid {LINE};
-        border-bottom: 1px solid {LINE};
-        margin: 26px 0 34px 0;
-    }}
-    .readout {{
-        flex: 1 1 160px;
-        padding: 16px 22px;
-        border-right: 1px solid {LINE};
-    }}
-    .readout:last-child {{ border-right: none; }}
-    .readout-label {{
+    .meta-row {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+    .meta-pill {{
+        background: {PANEL};
+        border: 1px solid {LINE};
         color: {MUTED};
-        font-size: 0.8rem;
-        margin-bottom: 6px;
+        font-size: 0.82rem;
+        padding: 5px 13px;
+        border-radius: 999px;
     }}
+    .meta-pill b {{ color: {TEXT}; font-weight: 600; }}
+
+    /* ---------- franja de lecturas ---------- */
+    .readout-strip {{ display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 24px 0; }}
+    .readout {{
+        flex: 1 1 170px;
+        background: {PANEL};
+        border: 1px solid {LINE};
+        border-left: 3px solid {ACCENT};
+        border-radius: 12px;
+        box-shadow: {SHADOW};
+        padding: 16px 20px;
+    }}
+    .readout.warm {{ border-left-color: {ACCENT_WARM}; }}
+    .readout-label {{ color: {MUTED}; font-size: 0.8rem; margin-bottom: 6px; }}
     .readout-value {{
         color: {TEXT};
-        font-size: 1.9rem;
+        font-size: 1.8rem;
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.01em;
     }}
     .readout-value.warm {{ color: {ACCENT_WARM}; }}
+    .readout-sub {{ color: {MUTED}; font-size: 0.78rem; margin-top: 4px; }}
+    .readout-sub.up {{ color: {ACCENT_WARM}; }}
+    .readout-sub.down {{ color: {ACCENT}; }}
 
-    /* ---------- paneles de contenido ---------- */
-    .panel-block {{
-        border: 1px solid {LINE};
-        background: {PANEL};
-        padding: 22px 24px 8px 24px;
-        margin-bottom: 26px;
+    /* ---------- notas y detalle de coordenadas ---------- */
+    .panel-note {{ color: {MUTED}; font-size: 0.88rem; margin-bottom: 14px; }}
+    .coord-readout {{
+        font-variant-numeric: tabular-nums;
+        color: {MUTED};
+        font-size: 0.85rem;
+        padding-top: 12px;
     }}
-    .panel-block h3 {{
-        font-family: 'Inter', sans-serif;
+    .coord-readout span {{ color: {ACCENT}; font-weight: 600; }}
+
+    /* ---------- tira de fotos ---------- */
+    .filmstrip {{ display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }}
+    .filmstrip img {{
+        height: 210px; width: auto;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid {LINE};
+        flex-shrink: 0;
+    }}
+
+    /* ---------- eventos de crecida ---------- */
+    .evento-fila {{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 11px 0;
+        border-bottom: 1px solid {LINE};
+        font-size: 0.9rem;
+    }}
+    .evento-fila:last-child {{ border-bottom: none; }}
+    .evento-fecha {{ color: {MUTED}; }}
+    .evento-pico {{ color: {ACCENT_WARM}; font-weight: 600; font-variant-numeric: tabular-nums; }}
+
+    /* ---------- paneles con borde (st.container(border=True)) ---------- */
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        background: {PANEL};
+        border: 1px solid {LINE} !important;
+        border-radius: 16px !important;
+        box-shadow: {SHADOW};
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"] h3 {{
         font-weight: 600;
         font-size: 1.02rem;
         color: {TEXT};
         margin: 0 0 4px 0;
     }}
-    .panel-block .panel-note {{
-        color: {MUTED};
-        font-size: 0.88rem;
-        margin-bottom: 14px;
-    }}
-    .coord-readout {{
-        font-variant-numeric: tabular-nums;
-        color: {MUTED};
-        font-size: 0.85rem;
-        padding: 10px 0 18px 0;
-    }}
-    .coord-readout span {{ color: {ACCENT}; }}
-
-    /* ---------- tira de fotos ---------- */
-    .filmstrip {{
-        display: flex;
-        gap: 12px;
-        overflow-x: auto;
-        padding-bottom: 12px;
-    }}
-    .filmstrip img {{
-        height: 210px;
-        width: auto;
-        object-fit: cover;
-        border: 1px solid {LINE};
-        flex-shrink: 0;
-    }}
-
-    /* ---------- barra de control ---------- */
-    .control-label {{
-        color: {MUTED};
-        font-size: 0.8rem;
-        margin-bottom: 10px;
-    }}
+    .control-label {{ color: {MUTED}; font-size: 0.8rem; margin-bottom: 10px; }}
 
     /* ---------- widgets nativos ---------- */
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: {PANEL};
-        border-color: {LINE} !important;
-    }}
     [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {{
         background: {ACCENT};
-        color: {BG};
+        color: white;
         border: none;
-        border-radius: 2px;
+        border-radius: 999px;
         font-weight: 600;
+        padding: 0.5rem 1.1rem;
     }}
     [data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover {{
-        background: {TEXT};
-        color: {BG};
+        background: #17603C;
+        color: white;
     }}
     [data-testid="stExpander"] {{
         border: 1px solid {LINE};
+        border-radius: 14px;
         background: {PANEL};
     }}
     </style>
@@ -341,6 +380,24 @@ def detectar_fotos(info_estacion):
     return urls_limpias
 
 
+def construir_pills_contexto(info_estacion):
+    """Arma insignias de contexto (corriente, municipio, cuenca, tipo, altitud) con lo que
+    realmente exista en los metadatos de la API. Las que no se encuentren simplemente no se muestran."""
+    campos = [
+        ("Corriente", _valor_por_candidatos(info_estacion, CANDIDATOS_CORRIENTE)),
+        ("Municipio", _valor_por_candidatos(info_estacion, CANDIDATOS_MUNICIPIO)),
+        ("Cuenca", _valor_por_candidatos(info_estacion, CANDIDATOS_CUENCA)),
+        ("Tipo", _valor_por_candidatos(info_estacion, CANDIDATOS_TIPO)),
+        ("Altitud", _valor_por_candidatos(info_estacion, CANDIDATOS_ALTITUD)),
+    ]
+    pills = []
+    for etiqueta, valor in campos:
+        if valor is not None and str(valor).strip() != "":
+            texto = f"{valor} m" if etiqueta == "Altitud" and str(valor).replace(".", "", 1).isdigit() else str(valor)
+            pills.append(f'<div class="meta-pill">{etiqueta}: <b>{texto}</b></div>')
+    return pills
+
+
 def calcular_calidad(df):
     """Devuelve indice(0-100), huecos, n_outliers, y una máscara booleana de outliers alineada a df."""
     if df.empty or len(df) < 2:
@@ -367,13 +424,31 @@ def calcular_calidad(df):
     return round(indice, 1), int(huecos), int(es_outlier.sum()), es_outlier
 
 
+def detectar_eventos_crecida(df, es_outlier):
+    """Agrupa outliers consecutivos en 'eventos de crecida': inicio, fin, pico y duración."""
+    if not es_outlier.any():
+        return pd.DataFrame(columns=["inicio", "fin", "pico", "duracion_h"])
+
+    grupos = (es_outlier != es_outlier.shift()).cumsum()
+    eventos = []
+    for _, sub in df[es_outlier].groupby(grupos[es_outlier]):
+        inicio, fin = sub["fecha"].min(), sub["fecha"].max()
+        eventos.append({
+            "inicio": inicio,
+            "fin": fin,
+            "pico": sub["nivel"].max(),
+            "duracion_h": round((fin - inicio).total_seconds() / 3600, 1),
+        })
+    return pd.DataFrame(eventos).sort_values("inicio", ascending=False).reset_index(drop=True)
+
+
 def grafico_nivel(df, es_outlier):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["fecha"], y=df["nivel"],
         mode="lines", name="Nivel",
-        line=dict(color=ACCENT, width=1.6),
-        fill="tozeroy", fillcolor="rgba(87, 195, 211, 0.12)",
+        line=dict(color=ACCENT, width=1.8),
+        fill="tozeroy", fillcolor="rgba(31, 122, 77, 0.10)",
         hovertemplate="%{x|%d %b, %H:%M}<br>%{y:.2f}<extra></extra>",
     ))
     if es_outlier.any():
@@ -398,6 +473,7 @@ def grafico_nivel(df, es_outlier):
 
 
 def mapa_estacion(lat, lon, nombre):
+    """Mapa sin cambios respecto a la versión anterior: estilo oscuro nativo de pydeck."""
     capa_punto = pdk.Layer(
         "ScatterplotLayer",
         data=[{"lat": lat, "lon": lon}],
@@ -423,29 +499,67 @@ def mapa_estacion(lat, lon, nombre):
     )
 
 
+def exportar_excel(df):
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="nivel")
+    return buffer.getvalue()
+
+
 # ------------------------------------------------------------------
-# Info de la estación — se obtiene siempre, así el título ya sale
-# con el nombre real aunque el usuario no haya presionado "Consultar"
+# Info de la estación — se obtiene siempre, así el título y el
+# contexto ya salen con datos reales aunque no se haya consultado
 # ------------------------------------------------------------------
 info_estacion, endpoint_usado = obtener_info_estacion(CODIGO_ESTACION)
 nombre_estacion_api = _valor_por_candidatos(info_estacion, CANDIDATOS_NOMBRE)
 titulo_app = nombre_estacion_api if nombre_estacion_api else f"Estación {CODIGO_ESTACION}"
+pills_contexto = construir_pills_contexto(info_estacion)
 
 # ------------------------------------------------------------------
-# Encabezado
+# Topbar de marca
 # ------------------------------------------------------------------
 st.markdown(
     f"""
-    <div class="panel-hero">
-        <h1>{titulo_app}</h1>
-        <p>Estación limnimétrica del sistema MARCO, operado por Cornare, en la cuenca de los ríos Negro y Nare.</p>
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="brand-mark">🌊</div>
+            <div>
+                <div class="brand-name">MARCO</div>
+                <div class="brand-sub">Monitoreo Ambiental Regional de Cornare</div>
+            </div>
+        </div>
+        <div class="topbar-badge">Estación {CODIGO_ESTACION}</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 # ------------------------------------------------------------------
-# Barra de control — en el panel principal, sin fechas predeterminadas
+# Encabezado de la estación — contexto ampliado
+# ------------------------------------------------------------------
+fila_pills = f'<div class="meta-row">{"".join(pills_contexto)}</div>' if pills_contexto else ""
+st.markdown(
+    f"""
+    <div class="panel-hero">
+        <h1>{titulo_app}</h1>
+        <p>Estación limnimétrica del sistema MARCO, operado por Cornare, en la cuenca de los ríos Negro y Nare.
+        Mide el nivel del agua de forma automática y transmite sus lecturas para apoyar la vigilancia de crecidas
+        e inundaciones en la zona.</p>
+        {fila_pills}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+if not pills_contexto:
+    st.markdown(
+        f'<p class="panel-note" style="margin-top:-14px;">No se encontraron campos adicionales '
+        f'(corriente, municipio, cuenca, tipo, altitud) en la respuesta de la API para esta estación — '
+        f'revisa "Datos crudos de la estación" más abajo para confirmar los nombres reales de esos campos.</p>',
+        unsafe_allow_html=True,
+    )
+
+# ------------------------------------------------------------------
+# Barra de control — sin fechas predeterminadas
 # ------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<div class="control-label">Parámetros de consulta</div>', unsafe_allow_html=True)
@@ -459,6 +573,8 @@ with st.container(border=True):
     with col_boton:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         consultar = st.button("Consultar", type="primary", use_container_width=True)
+
+st.markdown('<div style="height: 22px;"></div>', unsafe_allow_html=True)
 
 # ------------------------------------------------------------------
 # Consulta y procesamiento
@@ -490,24 +606,51 @@ elif consultar:
             lat, lon, coords_reales = detectar_coordenadas(info_estacion)
             fotos = detectar_fotos(info_estacion)
             indice_calidad, huecos, n_outliers, mascara_outliers = calcular_calidad(df)
+            eventos = detectar_eventos_crecida(df, mascara_outliers)
+
+            # --- Última lectura y tendencia ---
+            ultimo = df.iloc[-1]
+            penultimo = df.iloc[-2] if len(df) > 1 else ultimo
+            delta = ultimo["nivel"] - penultimo["nivel"]
+            if delta > 0.01:
+                tendencia_txt, tendencia_clase, flecha = "subiendo", "up", "▲"
+            elif delta < -0.01:
+                tendencia_txt, tendencia_clase, flecha = "bajando", "down", "▼"
+            else:
+                tendencia_txt, tendencia_clase, flecha = "estable", "", "—"
+
+            # --- Nivel máximo registrado ---
+            idx_max = df["nivel"].idxmax()
+            nivel_max = df.loc[idx_max, "nivel"]
+            fecha_max = df.loc[idx_max, "fecha"]
 
             # --- Franja de lecturas ---
             st.markdown(
                 f"""
                 <div class="readout-strip">
                     <div class="readout">
-                        <div class="readout-label">Lecturas</div>
-                        <div class="readout-value">{len(df):,}</div>
+                        <div class="readout-label">Última lectura</div>
+                        <div class="readout-value">{ultimo['nivel']:.2f}</div>
+                        <div class="readout-sub {tendencia_clase}">{flecha} {tendencia_txt} ({delta:+.2f})</div>
                     </div>
                     <div class="readout">
                         <div class="readout-label">Nivel promedio</div>
                         <div class="readout-value">{df['nivel'].mean():.2f}</div>
                     </div>
-                    <div class="readout">
-                        <div class="readout-label">Índice de calidad</div>
-                        <div class="readout-value">{indice_calidad}<span style="font-size:1.1rem;color:{MUTED};"> /100</span></div>
+                    <div class="readout warm">
+                        <div class="readout-label">Nivel máximo</div>
+                        <div class="readout-value warm">{nivel_max:.2f}</div>
+                        <div class="readout-sub">{fecha_max.strftime('%d %b, %H:%M')}</div>
                     </div>
                     <div class="readout">
+                        <div class="readout-label">Lecturas</div>
+                        <div class="readout-value">{len(df):,}</div>
+                    </div>
+                    <div class="readout">
+                        <div class="readout-label">Índice de calidad</div>
+                        <div class="readout-value">{indice_calidad}<span style="font-size:1.05rem;color:{MUTED};"> /100</span></div>
+                    </div>
+                    <div class="readout warm">
                         <div class="readout-label">Outliers</div>
                         <div class="readout-value warm">{n_outliers}</div>
                     </div>
@@ -521,7 +664,29 @@ elif consultar:
                 st.markdown("<h3>Serie de nivel</h3>", unsafe_allow_html=True)
                 st.plotly_chart(grafico_nivel(df, mascara_outliers), use_container_width=True, config={"displayModeBar": False})
 
-            # --- Mapa ---
+            # --- Eventos de crecida (función nueva) ---
+            with st.container(border=True):
+                st.markdown("<h3>Eventos de crecida detectados</h3>", unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="panel-note">Agrupa los outliers consecutivos de la gráfica en episodios de crecida, '
+                    'con su fecha de inicio, fin, pico y duración.</div>',
+                    unsafe_allow_html=True,
+                )
+                if eventos.empty:
+                    st.markdown('<div class="panel-note">No se detectaron eventos de crecida en este rango de fechas.</div>', unsafe_allow_html=True)
+                else:
+                    filas_html = ""
+                    for _, ev in eventos.iterrows():
+                        filas_html += (
+                            f'<div class="evento-fila">'
+                            f'<span class="evento-fecha">{ev["inicio"].strftime("%d %b, %H:%M")} → {ev["fin"].strftime("%d %b, %H:%M")} '
+                            f'({ev["duracion_h"]:.1f} h)</span>'
+                            f'<span class="evento-pico">pico {ev["pico"]:.2f}</span>'
+                            f'</div>'
+                        )
+                    st.markdown(filas_html, unsafe_allow_html=True)
+
+            # --- Mapa (sin cambios de estilo respecto a la versión anterior) ---
             with st.container(border=True):
                 st.markdown("<h3>Ubicación</h3>", unsafe_allow_html=True)
                 if not coords_reales:
@@ -566,7 +731,16 @@ elif consultar:
             with st.expander("Ver datos crudos de la serie"):
                 st.dataframe(df, use_container_width=True)
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Descargar CSV", csv, file_name=f"nivel_estacion_{CODIGO_ESTACION}.csv", mime="text/csv")
+            # --- Descargas (CSV + Excel) ---
+            col_csv, col_xlsx = st.columns(2)
+            with col_csv:
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button("Descargar CSV", csv, file_name=f"nivel_estacion_{CODIGO_ESTACION}.csv", mime="text/csv", use_container_width=True)
+            with col_xlsx:
+                xlsx = exportar_excel(df)
+                st.download_button(
+                    "Descargar Excel", xlsx, file_name=f"nivel_estacion_{CODIGO_ESTACION}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True,
+                )
 else:
     st.info("Elige el rango de fechas arriba y presiona **Consultar**.")
