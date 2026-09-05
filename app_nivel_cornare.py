@@ -221,10 +221,10 @@ st.markdown(
         margin: 0 0 4px 0;
     }}
     .panel-title {{
-        font-weight: 600;
-        font-size: 1.02rem;
+        font-weight: 700;
+        font-size: 1.45rem;
         color: #000000 !important;
-        margin: 0 0 4px 0;
+        margin: 0 0 10px 0;
     }}
     /* Cinturón de seguridad: cualquier texto de Streamlit dentro de estos paneles
        (st.caption, st.write, st.markdown sin clase propia) hereda a veces el color
