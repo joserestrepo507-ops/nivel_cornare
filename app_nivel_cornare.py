@@ -424,21 +424,37 @@ def calcular_calidad(df):
     return round(indice, 1), int(huecos), int(es_outlier.sum()), es_outlier
 
 
-def detectar_eventos_crecida(df, es_outlier):
-    """Agrupa outliers consecutivos en 'eventos de crecida': inicio, fin, pico y duración."""
+GAP_FUSION_EVENTOS = pd.Timedelta(hours=1)  # rachas de outliers separadas por menos de esto se fusionan en un solo evento
+MAX_EVENTOS_MOSTRADOS = 12
+
+
+def detectar_eventos_crecida(df, es_outlier, gap_fusion=GAP_FUSION_EVENTOS):
+    """
+    Agrupa outliers consecutivos en 'eventos de crecida' (inicio, fin, pico, duración).
+    Cuando el nivel oscila justo alrededor del umbral de outlier, quedan muchas rachas
+    diminutas separadas por minutos; para no mostrar decenas de "eventos" casi idénticos,
+    se fusionan las rachas cuyo espacio entre una y la siguiente es menor a `gap_fusion`.
+    """
     if not es_outlier.any():
         return pd.DataFrame(columns=["inicio", "fin", "pico", "duracion_h"])
 
     grupos = (es_outlier != es_outlier.shift()).cumsum()
-    eventos = []
+    rachas = []
     for _, sub in df[es_outlier].groupby(grupos[es_outlier]):
-        inicio, fin = sub["fecha"].min(), sub["fecha"].max()
-        eventos.append({
-            "inicio": inicio,
-            "fin": fin,
-            "pico": sub["nivel"].max(),
-            "duracion_h": round((fin - inicio).total_seconds() / 3600, 1),
-        })
+        rachas.append({"inicio": sub["fecha"].min(), "fin": sub["fecha"].max(), "pico": sub["nivel"].max()})
+    rachas.sort(key=lambda r: r["inicio"])
+
+    eventos = []
+    for racha in rachas:
+        if eventos and (racha["inicio"] - eventos[-1]["fin"]) <= gap_fusion:
+            eventos[-1]["fin"] = max(eventos[-1]["fin"], racha["fin"])
+            eventos[-1]["pico"] = max(eventos[-1]["pico"], racha["pico"])
+        else:
+            eventos.append(dict(racha))
+
+    for ev in eventos:
+        ev["duracion_h"] = round((ev["fin"] - ev["inicio"]).total_seconds() / 3600, 1)
+
     return pd.DataFrame(eventos).sort_values("inicio", ascending=False).reset_index(drop=True)
 
 
@@ -600,6 +616,10 @@ elif consultar:
             df = pd.DataFrame(registros)
             df = df.rename(columns={LLAVE_FECHA: "fecha", LLAVE_VALOR: "nivel"})
             df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+            if df["fecha"].dt.tz is not None:
+                # Excel (openpyxl) no admite fechas con zona horaria — se quita el
+                # sufijo de tz conservando la hora local ya reportada por la API.
+                df["fecha"] = df["fecha"].dt.tz_localize(None)
             df["nivel"] = pd.to_numeric(df["nivel"], errors="coerce")
             df = df.dropna(subset=["fecha", "nivel"]).sort_values("fecha").reset_index(drop=True)
 
@@ -675,8 +695,9 @@ elif consultar:
                 if eventos.empty:
                     st.markdown('<div class="panel-note">No se detectaron eventos de crecida en este rango de fechas.</div>', unsafe_allow_html=True)
                 else:
+                    eventos_mostrar = eventos.head(MAX_EVENTOS_MOSTRADOS)
                     filas_html = ""
-                    for _, ev in eventos.iterrows():
+                    for _, ev in eventos_mostrar.iterrows():
                         filas_html += (
                             f'<div class="evento-fila">'
                             f'<span class="evento-fecha">{ev["inicio"].strftime("%d %b, %H:%M")} → {ev["fin"].strftime("%d %b, %H:%M")} '
@@ -685,6 +706,12 @@ elif consultar:
                             f'</div>'
                         )
                     st.markdown(filas_html, unsafe_allow_html=True)
+                    if len(eventos) > MAX_EVENTOS_MOSTRADOS:
+                        st.markdown(
+                            f'<div class="panel-note" style="margin-top:10px;">'
+                            f'Mostrando los {MAX_EVENTOS_MOSTRADOS} eventos más recientes de {len(eventos)} detectados en total.</div>',
+                            unsafe_allow_html=True,
+                        )
 
             # --- Mapa (sin cambios de estilo respecto a la versión anterior) ---
             with st.container(border=True):
