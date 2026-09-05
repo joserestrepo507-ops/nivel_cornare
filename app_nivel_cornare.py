@@ -88,7 +88,7 @@ st.markdown(
         font-family: 'Inter', sans-serif;
     }}
     .stApp {{ background: {BG}; }}
-    .block-container {{ padding-top: 1.2rem; max-width: 1180px; }}
+    .block-container {{ padding-top: 4rem; max-width: 1180px; }}
 
     /* ---------- topbar de marca ---------- */
     .topbar {{
@@ -221,6 +221,7 @@ st.markdown(
         margin: 0 0 4px 0;
     }}
     .control-label {{ color: {MUTED}; font-size: 0.8rem; margin-bottom: 10px; }}
+    [data-testid="stWidgetLabel"] p {{ color: {TEXT} !important; }}
 
     /* ---------- widgets nativos ---------- */
     [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {{
@@ -240,6 +241,13 @@ st.markdown(
         border-radius: 14px;
         background: {PANEL};
     }}
+    /* Fuerza texto e ícono oscuros en el encabezado del expander — si el tema
+       activo en Streamlit Cloud no coincide con nuestro config.toml (por ejemplo,
+       si alguien fijó un tema manual en la configuración de la app), el texto por
+       defecto queda claro sobre nuestro fondo blanco y se vuelve invisible. */
+    [data-testid="stExpander"] summary {{ color: {TEXT} !important; }}
+    [data-testid="stExpander"] summary p {{ color: {TEXT} !important; }}
+    [data-testid="stExpander"] summary svg {{ fill: {TEXT} !important; }}
     </style>
     """,
     unsafe_allow_html=True,
