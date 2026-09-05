@@ -69,7 +69,7 @@ MUTED = "#86A19E"
 ACCENT = "#57C3D3"
 ACCENT_WARM = "#D98B4A"
 
-st.set_page_config(page_title="Estación 23", page_icon="🌅", layout="wide")
+st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
 
 st.markdown(
     f"""
