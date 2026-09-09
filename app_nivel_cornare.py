@@ -601,7 +601,7 @@ fila_pills = f'<div class="meta-row">{"".join(pills_contexto)}</div>' if pills_c
 st.markdown(
     f"""
     <div class="panel-hero">
-        <h1> Guarne, Quebrada La Mosca, Vía Guarne - Aeropuerto José María Cordova {titulo_app}</h1>
+        <h1> Guarne, Quebrada La Mosca, Vía Guarne Aeropuerto José María Cordova {titulo_app}</h1>
         <p>Estación limnimétrica del sistema MARCO, operado por Cornare, en la cuenca de los ríos Negro y Nare.
         Mide el nivel del agua de forma automática y transmite sus lecturas para apoyar la vigilancia de crecidas
         e inundaciones en la zona.</p>
