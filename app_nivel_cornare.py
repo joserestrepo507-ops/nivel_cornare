@@ -77,7 +77,7 @@ ACCENT_WARM = "#D9820B"   # ámbar de alerta — outliers / crecidas
 MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
 SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
 
-st.set_page_config(page_title="Estación 23", page_icon="🌊", layout="wide")
+st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
 
 st.markdown(
     f"""
@@ -623,13 +623,11 @@ if not pills_contexto:
 # ------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<div class="control-label">Parámetros de consulta</div>', unsafe_allow_html=True)
-    col_desde, col_hasta, col_calidad, col_boton = st.columns([1, 1, 1, 1])
+    col_desde, col_hasta, col_boton = st.columns([1, 1, 1])
     with col_desde:
         fecha_desde_val = st.date_input("Desde", value=None, format="YYYY/MM/DD")
     with col_hasta:
         fecha_hasta_val = st.date_input("Hasta", value=None, format="YYYY/MM/DD")
-    with col_calidad:
-        calidad = st.selectbox("Calidad", [1, 0], index=0, help="1 = solo datos validados")
     with col_boton:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         consultar = st.button("Consultar", type="primary", use_container_width=True)
@@ -647,7 +645,7 @@ elif consultar:
     fecha_desde = fecha_desde_val.strftime("%Y-%m-%d")
     fecha_hasta = fecha_hasta_val.strftime("%Y-%m-%d")
     with st.spinner("Consultando la API..."):
-        datos_crudos, error = obtener_serie_nivel(CODIGO_ESTACION, fecha_desde, fecha_hasta, calidad)
+        datos_crudos, error = obtener_serie_nivel(CODIGO_ESTACION, fecha_desde, fecha_hasta, calidad=1)
 
     if error:
         st.error(f"No se pudo consultar la estación: {error}")
