@@ -619,6 +619,25 @@ if not pills_contexto:
     )
 
 # ------------------------------------------------------------------
+# Registro fotográfico — al inicio, sin título, disponible aunque
+# todavía no se haya consultado la serie de nivel
+# ------------------------------------------------------------------
+fotos = detectar_fotos(info_estacion)
+with st.container(border=True):
+    if fotos:
+        imgs_html = "".join(f'<img src="{url}">' for url in fotos)
+        st.markdown(f'<div class="filmstrip">{imgs_html}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(
+            '<div class="panel-note">No se encontraron fotos de la estación en la respuesta de la API. '
+            'Si sabes que existen, revisa "Datos crudos de la estación" para ubicar el nombre real del campo '
+            'y agrégalo a <code>CANDIDATOS_FOTOS</code>.</div>',
+            unsafe_allow_html=True,
+        )
+
+st.markdown('<div style="height: 22px;"></div>', unsafe_allow_html=True)
+
+# ------------------------------------------------------------------
 # Barra de control — sin fechas predeterminadas
 # ------------------------------------------------------------------
 with st.container(border=True):
@@ -666,7 +685,6 @@ elif consultar:
             df = df.dropna(subset=["fecha", "nivel"]).sort_values("fecha").reset_index(drop=True)
 
             lat, lon, coords_reales = detectar_coordenadas(info_estacion)
-            fotos = detectar_fotos(info_estacion)
             indice_calidad, huecos, n_outliers, mascara_outliers = calcular_calidad(df)
             eventos = detectar_eventos_crecida(df, mascara_outliers)
 
@@ -769,20 +787,6 @@ elif consultar:
                     f'<div class="coord-readout">lat <span>{lat:.5f}</span> · lon <span>{lon:.5f}</span></div>',
                     unsafe_allow_html=True,
                 )
-
-            # --- Fotos ---
-            with st.container(border=True):
-                st.markdown('<div class="panel-title">Registro fotográfico</div>', unsafe_allow_html=True)
-                if fotos:
-                    imgs_html = "".join(f'<img src="{url}">' for url in fotos)
-                    st.markdown(f'<div class="filmstrip">{imgs_html}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        '<div class="panel-note">No se encontraron fotos de la estación en la respuesta de la API. '
-                        'Si sabes que existen, revisa "Datos crudos de la estación" para ubicar el nombre real del campo '
-                        'y agrégalo a <code>CANDIDATOS_FOTOS</code>.</div>',
-                        unsafe_allow_html=True,
-                    )
 
             # --- Detalle / depuración ---
             with st.expander("Datos crudos de la estación (para depurar)"):
