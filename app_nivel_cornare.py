@@ -77,7 +77,7 @@ ACCENT_WARM = "#D9820B"   # ámbar de alerta — outliers / crecidas
 MAP_ACCENT = "#57C3D3"    # marcador sobre el mapa oscuro (sin cambios)
 SHADOW = "0 2px 14px rgba(24, 39, 34, 0.07)"
 
-st.set_page_config(page_title="Estación 23 — MARCO Cornare", page_icon="🌊", layout="wide")
+st.set_page_config(page_title="Estación 23", page_icon="🌊", layout="wide")
 
 st.markdown(
     f"""
@@ -601,7 +601,7 @@ fila_pills = f'<div class="meta-row">{"".join(pills_contexto)}</div>' if pills_c
 st.markdown(
     f"""
     <div class="panel-hero">
-        <h1> Guarne, Quebrada La Mosca, Vía Guarne Aeropuerto José María Cordova {titulo_app}</h1>
+        <h1> Guarne, Quebrada La Mosca, Vía Guarne Aeropuerto josé María Cordova {titulo_app}</h1>
         <p>Estación limnimétrica del sistema MARCO, operado por Cornare, en la cuenca de los ríos Negro y Nare.
         Mide el nivel del agua de forma automática y transmite sus lecturas para apoyar la vigilancia de crecidas
         e inundaciones en la zona.</p>
